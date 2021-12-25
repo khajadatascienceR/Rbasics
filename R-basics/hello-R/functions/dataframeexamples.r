@@ -25,3 +25,16 @@ print(new_employee_df)
 new_employee_df_2 <- employee_df[!(names(employee_df) %in% c("dept", "hours per week"))]
 
 
+employees <- read.csv('data/employees.csv', header=TRUE)
+
+nth.higheshpaid <- function(n, employees){
+  return(employees[order(employees$SALARY, decreasing = TRUE), ][n, ])
+}
+
+nth.higheshpaid(employees = employees, n=3)
+
+n.highestpaid <- function(n, employees){
+  return(employees[order(employees$SALARY, decreasing = TRUE), ][1:n, ])
+}
+
+n.highestpaid(5, employees)
