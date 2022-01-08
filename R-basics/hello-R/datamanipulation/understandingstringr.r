@@ -76,4 +76,34 @@ df <- tibble(
 df %>%
   filter(str_detect(fruit, '^s.*y$'))
 
+# count the occurances in each element
+fruit
+str_count(fruit, "a")
+
+# which have vowels
+fruit %>%
+  str_count("[aieou]")
+
+# which are not vowels
+fruit %>%
+  str_count("[^aieou]")
+
+
+# Replace pattern with any string
+fruit %>%
+  str_replace("[aeiou]", "_")
+
+fruit %>%
+  str_replace_all("[aeiou]", "_")
+
+# splitting strings into list
+
+sentences %>%
+  head(5) %>%
+  str_split(" ")
+
+sentences %>%
+  head(5) %>%
+  str_split(" ", simplify = TRUE)
+
 
