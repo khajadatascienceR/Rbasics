@@ -1,0 +1,147 @@
+---
+title: "Linear Regression: Sample Model for understanding"
+output: html_notebook
+---
+
+# libraries
+```{r}
+library(ggplot2)
+library(tibble)
+library(dplyr)
+
+sim1 <- modelr::sim1
+```
+```{r}
+sim1
+```
+
+```{r}
+ggplot(sim1, aes(x, y)) +
+  geom_point()
+```
+
+```{r}
+
+models <- tibble(
+  a1 = runif(250, -20,40),
+  a2 = runif(250, -5, 5)
+)
+
+ggplot(data = sim1, aes(x, y)) +
+  geom_point() +
+  geom_abline(aes(intercept=a1, slope=a2), data = models, alpha=1/4)
+
+```
+
+
+```{r}
+model1 <- function(a, data) {
+  a[1] + data$x * a[2] 
+}
+
+model1(c(7, 1.5), sim1)
+```
+
+
+# Root Mean Squared Deviation
+```{r}
+
+measure_distance <- function(mod, data) {
+  diff <- data$y - model1(mod, data)
+  sqrt(mean(diff ^ 2))
+}
+
+measure_distance(c(7, 1.5), sim1)
+```
+
+
+```{r}
+sim1_dist <- function(a1, a2) {
+  measure_distance(c(a1,a2), sim1)
+}
+
+models <- models %>%
+  mutate(dist = purrr::map2_dbl(a1, a2, sim1_dist))
+
+ggplot(sim1, aes(x,y)) +
+  geom_point(size=2, color="grey30") +
+  geom_abline(
+    aes(intercept = a1, slope = a2, color = -dist),
+    data = filter(models, rank(dist) <= 10)
+  )
+```
+```{r}
+ggplot(models, aes(a1,a2)) +
+  geom_point(data = filter(models, rank(dist) <= 10), size=4, color="red")+
+  geom_point(aes(color = -dist))
+```
+
+```{r}
+
+grid <- expand.grid(
+  a1 = seq(-10, 15, length =25),
+  a2 = seq(0,4, length = 25)
+) %>%
+  mutate(dist = purrr::map2_dbl(a1,a2, sim1_dist))
+
+grid %>%
+  ggplot(aes(a1,a2)) +
+  geom_point(data = filter(grid, rank(dist) <= 10), size=4, color="red") +
+  geom_point(aes(color = -dist))
+
+```
+```{r}
+ggplot(sim1, aes(x,y)) +
+  geom_point(size =2, color="grey30") +
+  geom_abline(
+    aes(intercept = a1, slope = a2, color = -dist),
+    data = filter(grid, rank(dist) <= 10)
+  )
+```
+
+```{r}
+best <- optim(c(0,0), measure_distance, data = sim1)
+best$par
+```
+
+# The Best Model from optim package
+```{r}
+ggplot(sim1, aes(x,y)) +
+  geom_point(size =2, color = "grey30") +
+  geom_abline(intercept = best$par[1], slope = best$par[2])
+```
+```{r}
+sim1_model <- lm(y ~ x, data = sim1)
+coef(sim1_model)
+broom::tidy(sim1_model)
+```
+# Prediction
+```{r}
+library(rsample)
+data_split <- initial_split(sim1)
+training_data <- training(data_split)
+testing_data <- testing(data_split)
+```
+
+```{r}
+model <- lm(y ~x, data = training_data)
+coef(model)
+```
+
+```{r}
+prediction <- predict(model, testing_data)
+testing_data <- testing_data %>%
+  mutate(pred = prediction)
+testing_data
+```
+
+```{r}
+ggplot(testing_data) +
+  geom_line(aes(x, pred), size = 3, color = "red", alpha = 0.5) +
+  geom_point(aes(x,y), size = 5, color ="green", alpha = 3/4) +
+  geom_point(data = sim1, aes(x,y), alpha = 0.5)
+```
+# Measure acuracy
+```{r}
+yardstick::metrics(testing_data, y, pred)
+```
