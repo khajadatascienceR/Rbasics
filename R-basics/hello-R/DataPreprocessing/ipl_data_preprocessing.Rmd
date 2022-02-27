@@ -1,0 +1,51 @@
+---
+title: "IPL Data Preprocessing"
+output: html_notebook
+---
+
+# Loading Libraries
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(skimr)
+
+```
+
+# Load the whole data
+```{r}
+data <- read_csv('deliveries.csv') %>%
+  select(over, ball, dismissal_kind, fielder) %>%
+  filter(dismissal_kind != "")
+
+skim(data)
+
+```
+# Split the data into training and testing
+```{r}
+library(rsample)
+
+data_split <- initial_split(data)
+training_data <- training(data_split)
+testing_data <- testing(data_split)
+
+skim(training_data)
+```
+# Lets encode the fielder to 0 or 1
+```{r}
+training_data <- training_data %>%
+  mutate(fielder = ifelse(is.na(fielder), 0, 1))
+skim(training_data)
+```
+
+# using recipes 
+```{r}
+ipl_dismissal_recipe <- training_data %>%
+  recipe() %>%
+  step_dummy(dismissal_kind) %>%
+  step_normalize(everything()) %>%
+  prep()
+ipl_dismissal_recipe
+preprocesed_data <- juice(ipl_dismissal_recipe)
+preprocesed_data
+```
+

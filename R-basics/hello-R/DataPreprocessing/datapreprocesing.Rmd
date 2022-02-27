@@ -1,0 +1,121 @@
+---
+title: "Data Preprocessing"
+output: html_notebook
+---
+
+# Loading Libraries
+
+```{r}
+# Lets try data preprocessing for starwars
+library(dplyr)
+library(tidyr)
+library(skimr)
+
+```
+# View the Data Set 
+```{r}
+starwars
+View(starwars)
+skim(starwars)
+```
+# Select the features for the model
+```{r}
+data <- starwars %>%
+  select(height, mass, gender)
+data
+```
+# Split the Training/Test data set
+
+```{r}
+# Split the data into training and testing data
+library(rsample)
+
+data_split <- initial_split(data)
+training_data <- training(data_split)
+testing_data <- testing(data_split)
+```
+
+# Feature Engineering add new features (BMI)
+
+```{r}
+
+# Add a BMI feature
+training_data <- training_data %>%
+  mutate(BMI = mass/(height * height))
+skim(training_data)
+```
+# Dealing with Missing Data
+```{r}
+# Removing Missing Data
+training_data <- training_data %>%
+  drop_na(height, gender)
+
+
+training_data <- training_data %>%
+  mutate(mass = ifelse(is.na(mass), mean(mass, na.rm=TRUE), mass)) %>%
+  mutate(BMI = ifelse(is.na(BMI), mean(BMI, na.rm=TRUE), BMI))
+
+skim(training_data)
+```
+
+# Dealing with Categorical Variables => Encoding Categorical Values
+```{r}
+iris
+skim(iris)
+iris %>%
+  mutate(Species = as.integer(Species))
+
+```
+# Using One Hot encoding / dummy variables
+```{r}
+iris %>%
+  mutate(Species_Versicolor = ifelse(Species == "versicolor", 1, 0),
+         Species_Virginica = ifelse(Species == "virginica", 1, 0)) %>%
+  select(-Species)
+```
+
+
+```{r}
+skim(training_data)
+
+data_tr_encoded <- training_data %>%
+  mutate(gender_masculine = ifelse(gender == "masculine", 1, 0)) %>%
+  select(-gender)
+
+```
+# Standardize the variables 
+```{r}
+#creating a reusable function
+standardize <- function(feature) {
+  (feature - mean(feature))/sd(feature)
+
+}
+
+data_tr_imputed_encoded_normalize <- data_tr_encoded %>%
+  mutate_all(standardize)
+
+skim(data_tr_imputed_encoded_normalize)
+```
+
+# Complete Processing Pipline
+
+```{r}
+library(rsample)
+library(skimr)
+
+
+data_split <- initial_split(data)
+data_train <- training(data_split)
+data_test <- testing(data_split)
+
+transformed_data_train <- data_train %>%
+  mutate(BMI = mass/ ( height*height ) ) %>%
+  drop_na(height, gender) %>%
+  mutate(mass = ifelse(is.na(mass), mean(mass, na.rm = TRUE), mass),
+         BMI = ifelse(is.na(BMI), mean(BMI, na.rm = TRUE), BMI)) %>%
+  mutate(gender_masculine = ifelse(gender == "masculine", 1, 0)) %>%
+  select(-gender) %>%
+  mutate_all(standardize)
+
+skim(transformed_data_train)
+```

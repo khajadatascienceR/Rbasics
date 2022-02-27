@@ -1,0 +1,185 @@
+---
+title: "Linear Regression: A near Real Model with Diamonds"
+output: html_notebook
+---
+
+# Building a model to predict diamond price
+
+## loading libraries
+```{r}
+library(ggplot2)
+library(tidyverse)
+library(tidymodels)
+library(skimr)
+library(corrr)
+```
+
+
+
+```{r}
+diamonds
+```
+
+### Lets start working only with numberical variables
+
+```{r}
+diamonds %>%
+  select(where(~ !is.factor(.x))) %>%
+  corrr::correlate() %>%
+  corrr::fashion()
+
+```
+
+### Lets build a correlation network plot
+```{r}
+diamonds %>%
+  select(where(~ !is.factor(.x))) %>%
+  corrr::correlate() %>%
+  corrr::network_plot()
+
+```
+
+### finding the correlation b/w other variables and price
+```{r}
+
+diamonds %>%
+  select(where(~ !is.factor(.x))) %>%
+  corrr::correlate() %>%
+  corrr::focus(price) %>%
+  arrange(desc(price))
+  
+```
+
+### Fetch variable names with correlation greater than 0.5
+```{r}
+high_corr_variables <- diamonds %>%
+  select(where(~ !is.factor(.x))) %>%
+  corrr::correlate() %>%
+  corrr::focus(price) %>%
+  arrange(desc(price)) %>%
+  filter(price > 0.5) %>%
+  pull(term)
+
+high_corr_variables
+```
+
+### Lets get the data with only these variables and price
+```{r}
+data <- diamonds %>%
+  select(high_corr_variables, price)
+
+data
+```
+### split the training and testing data
+```{r}
+data_split <- initial_split(data, strata = price)
+data_training <- training(data_split)
+data_testing <- testing(data_split)
+data_training
+
+```
+
+### building a model using lm
+```{r}
+model <- lm(price ~ ., data=data_training)
+```
+
+### summary of the model
+```{r}
+summary(model)
+```
+
+#### summary using broom
+```{r}
+broom::tidy(model)
+```
+
+### Consider all the variables of diamond
+```{r}
+complete_data <- diamonds
+complete_data_split <- initial_split(complete_data, strata = price)
+complete_data_training <- training(complete_data_split)
+complete_data_testing <- testing(complete_data_split)
+complete_model <- lm(price ~ ., data=complete_data_training)
+summary(complete_model)
+
+```
+
+```{r}
+broom::tidy(complete_model)
+```
+
+# The tidy models approach
+
+## Split the data
+```{r}
+tidy_data_split <- initial_split(diamonds, strata = price)
+tidy_data_train <- training(tidy_data_split)
+tidy_data_test <- testing(tidy_data_split)
+
+```
+
+## Data Preprocessing
+```{r}
+data_rec <- tidy_data_train %>%
+  recipe(price ~ ., tidy_data_train) %>%
+  step_dummy(all_nominal()) %>%
+  step_normalize(all_numeric(), -all_outcomes())%>%
+  prep()
+
+juiced <- juice(data_rec)
+juiced
+```
+
+## Create a model using lm
+```{r}
+lm_model <- parsnip::linear_reg() %>%
+  set_engine("lm") %>%
+  set_mode("regression")
+```
+
+## fitting the model
+```{r}
+lm_fit <- parsnip::fit(lm_model, price ~ ., juiced)
+lm_fit
+```
+```{r}
+glance(lm_fit)
+```
+
+```{r}
+broom::tidy(lm_fit)
+```
+
+```{r}
+results_train <- lm_fit %>%
+  predict(new_data = juiced) %>%
+  mutate(truth = tidy_data_train$price)
+
+results_test <- lm_fit %>%
+  predict(new_data = bake(data_rec, tidy_data_test)) %>%
+  mutate(truth = tidy_data_test$price)
+
+results <- results_train %>%
+  mutate(type = "train") %>%
+  bind_rows(
+    results_test %>%
+      mutate(type = "test")
+  )
+results
+```
+
+
+```{r}
+results %>%
+  group_by(type) %>%
+  yardstick::rmse(truth, .pred)
+```
+# Prediction vs truth
+```{r}
+ggplot(results, aes(truth, .pred)) +
+  geom_point() +
+  geom_abline(color="red", size=2) +
+  coord_fixed()
+
+```

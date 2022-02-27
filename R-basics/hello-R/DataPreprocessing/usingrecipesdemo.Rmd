@@ -1,0 +1,39 @@
+---
+title: "Data Preprocessing using Recipes"
+output: html_notebook
+---
+
+# Loading necessary libraries
+```{r}
+library(rsample)
+library(skimr)
+library(recipes)
+
+```
+
+# Split the data into training/testing 
+```{r}
+data <- starwars %>%
+  select(height, mass, gender)
+data_split <- initial_split(data)
+training_data <- training(data_split)
+testing_data <- testing(data_split)
+```
+
+# Data preprocessing using recipes
+```{r}
+starwars_recipe <- training_data %>%
+  recipe() %>%
+  step_mutate(BMI = mass/(height * height)) %>%
+  step_naomit(height, gender) %>%
+  step_impute_mean(mass, BMI) %>%
+  step_dummy(gender) %>%
+  step_normalize(everything()) %>%
+  prep()
+
+starwars_recipe
+```
+# Lets juice the recipe
+```{r}
+juice(starwars_recipe)
+```

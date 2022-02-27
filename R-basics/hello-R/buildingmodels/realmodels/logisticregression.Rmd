@@ -1,0 +1,96 @@
+---
+title: "Logistical Regression in R"
+output: html_notebook
+---
+
+## Importing libraries
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(skimr)
+library(corrr)
+
+# install package if not present 
+# install.packages('titanic')
+library(titanic)
+```
+
+## Lets use titanic dataset
+```{r}
+# Lets split the titanic_train and build the model
+
+data <- titanic_train
+data_split <- initial_split(data)
+train <- training(data_split)
+test <- testing(data_split)
+
+skimr::skim(train)
+```
+
+### Build a recipe
+```{r}
+data_rec <- recipe(Survived ~ ., train) %>%
+  step_mutate(Survived = ifelse(Survived  == 0, "Died", "Survived")) %>%
+  step_string2factor(Survived) %>%
+  step_rm(PassengerId, Name, Ticket, Cabin) %>%
+  step_meanimpute(Age) %>%
+  step_dummy(all_nominal(), -all_outcomes()) %>%
+  step_zv(all_predictors()) %>%
+  step_center(all_predictors(), -all_nominal()) %>%
+  step_scale(all_predictors(), -all_nominal())
+
+
+```
+## prepping a recipe
+```{r}
+data_prep <- data_rec %>%
+  prep()
+
+data_prep
+```
+
+# Build a fitted model
+```{r}
+fitted_model <- logistic_reg() %>%
+  set_engine("glm") %>%
+  set_mode("classification") %>%
+  fit(Survived ~ ., data = bake(data_prep, train))
+```
+
+# predict using the fitted model
+```{r}
+
+predictions <- fitted_model %>%
+  predict(new_data = bake(data_prep, test)) %>%
+  bind_cols(
+    bake(data_prep, test) %>%
+      select(Survived)
+  )
+
+predictions
+```
+## Create a confusion matrix
+```{r}
+predictions %>%
+  conf_mat(Survived, .pred_class)
+```
+
+# Metrics
+```{r}
+predictions %>%
+  metrics(Survived, .pred_class)
+```
+```{r}
+predictions %>%
+  precision(Survived, .pred_class)
+```
+
+```{r}
+predictions %>%
+  recall(Survived, .pred_class)
+```
+```{r}
+predictions %>%
+  f_meas(Survived, .pred_class)
+```
+
